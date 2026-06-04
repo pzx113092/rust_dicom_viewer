@@ -250,8 +250,7 @@ impl DCMSeries {
     }
 
     pub fn finalize(&mut self, ctx: &egui::Context) {
-        self.series
-            .sort_by_key(|a| a.instance_number);
+        self.series.sort_by_key(|a| a.instance_number);
         let i = self.series.len() / 2;
         let pixeldata = &self.series[i]
             .dicom_object
