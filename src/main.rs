@@ -22,7 +22,7 @@ fn main() -> eframe::Result {
     eframe::run_native(
         "eframe template",
         native_options,
-        Box::new(|cc| Ok(Box::new(rust_dicom_viewer::WebApp::new(cc)))),
+        Box::new(|_| Ok(Box::new(rust_dicom_viewer::WebApp::new()))),
     )
 }
 

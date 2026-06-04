@@ -1,7 +1,7 @@
 use std::num::ParseFloatError;
 use eframe::egui::{self, ColorImage};
 use egui::{ImageData, TextureHandle, TextureOptions};
-use dicom::{encoding::adapters::PixelDataObject, object::{FileDicomObject, InMemDicomObject, Tag, file}};
+use dicom::{object::{FileDicomObject, InMemDicomObject, Tag, file}};
 use dicom_dictionary_std::tags;
 use dicom_pixeldata::*;
 use image::RgbImage;
@@ -77,9 +77,9 @@ pub struct DCMImage {
     pub dicom_object: FileDicomObject<InMemDicomObject>,
     instance_number: i16,
     series_number: i16,
-    file_name: String,
-    rows: u16,
-    cols: u16,
+    // file_name: String,
+    // rows: u16,
+    // cols: u16,
 
 }
 
@@ -92,7 +92,7 @@ impl DCMImage {
         }
     }
 
-    pub fn new(file_name: String, bytes: Vec<u8>) -> Self {
+    pub fn new(bytes: Vec<u8>) -> Self {
         let cursor = std::io::Cursor::new(bytes);
         //let file_name = file_name;
         let dicom_object = file::from_reader(cursor).unwrap();
@@ -108,16 +108,16 @@ impl DCMImage {
             } else {
                 -1
             };
-        let rows = dicom_object.rows().unwrap_or(0);
-        let cols = dicom_object.cols().unwrap_or(0);
+        // let rows = dicom_object.rows().unwrap_or(0);
+        // let cols = dicom_object.cols().unwrap_or(0);
 
         Self {
             dicom_object,
             instance_number,
             series_number,
-            file_name,
-            rows,
-            cols,
+            // file_name,
+            // rows,
+            // cols,
         }
     }
 

@@ -110,7 +110,7 @@ impl Default for WebApp {
 
 impl WebApp {
     /// Called once before the first frame.
-    pub fn new(cc: &eframe::CreationContext<'_>) -> Self {
+    pub fn new() -> Self {
         // This is also where you can customize the look and feel of egui using
         // `cc.egui_ctx.set_visuals` and `cc.egui_ctx.set_fonts`.
 
@@ -172,8 +172,8 @@ impl eframe::App for WebApp {
     fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
         ui.set_visuals(egui::Visuals::dark());
         if let Some(downloaded_files) = self.file_bytes.lock().unwrap().take() {
-            for (name, bytes) in downloaded_files {
-                let img = DCMImage::new(name, bytes);
+            for (_name, bytes) in downloaded_files {
+                let img = DCMImage::new(bytes);
                 add_to_series(&mut self.series_vec, img);
             }
             for series in &mut self.series_vec {
