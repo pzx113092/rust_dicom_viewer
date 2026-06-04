@@ -29,7 +29,8 @@ fn main() -> eframe::Result {
 // When compiling to web using trunk:
 #[cfg(target_arch = "wasm32")]
 fn main() {
-    use eframe::{wasm_bindgen::JsCast as _, wgpu::naga::proc::ExpressionKind::Runtime};
+    use eframe::wasm_bindgen::JsCast as _;
+    //, wgpu::naga::proc::ExpressionKind::Runtime
 
     let web_options = eframe::WebOptions::default();
 

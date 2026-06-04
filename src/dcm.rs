@@ -186,6 +186,7 @@ pub struct DCMSeries {
     pub texture: Option<TextureHandle>,
 }
 
+#[allow(clippy::missing_errors_doc)]
 pub trait WindowLevelParse {
     fn custom_parse(&self) -> Result<f64, ParseFloatError>;
 }
@@ -250,7 +251,7 @@ impl DCMSeries {
 
     pub fn finalize(&mut self, ctx: &egui::Context) {
         self.series
-            .sort_by(|a, b| a.instance_number.cmp(&b.instance_number));
+            .sort_by_key(|a| a.instance_number);
         let i = self.series.len() / 2;
         let pixeldata = &self.series[i]
             .dicom_object
@@ -280,6 +281,6 @@ pub fn add_to_series(series_vec: &mut Vec<DCMSeries>, image: DCMImage) {
         series_vec.push(DCMSeries::new(image));
     }
     if series_vec.len() > 1 {
-        series_vec.sort_by(|a, b| a.series_number.cmp(&b.series_number));
+        series_vec.sort_by_key(|a| a.series_number);
     }
 }

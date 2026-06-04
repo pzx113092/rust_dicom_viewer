@@ -131,6 +131,7 @@ impl ViewPort {
     }
 }
 
+#[allow(clippy::type_complexity)]
 pub struct WebApp {
     file_bytes: std::sync::Arc<std::sync::Mutex<Option<Vec<(String, Vec<u8>)>>>>,
     series_vec: Vec<DCMSeries>,
@@ -212,6 +213,7 @@ impl eframe::App for WebApp {
     //     eframe::set_value(storage, eframe::APP_KEY, self);
     // }
     /// Called each time the UI needs repainting, which may be many times per second.
+    #[allow(clippy::too_many_lines)]
     fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
         ui.set_visuals(egui::Visuals::dark());
         if let Some(downloaded_files) = self.file_bytes.lock().expect("Unable to lock data").take()
