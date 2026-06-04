@@ -31,9 +31,6 @@ fn main() -> eframe::Result {
 fn main() {
     use eframe::{wasm_bindgen::JsCast as _, wgpu::naga::proc::ExpressionKind::Runtime};
 
-    // Redirect `log` message to `console.log` and friends:
-    eframe::WebLogger::init(log::LevelFilter::Debug).ok();
-
     let web_options = eframe::WebOptions::default();
 
     wasm_bindgen_futures::spawn_local(async {
@@ -52,7 +49,7 @@ fn main() {
             .start(
                 canvas,
                 web_options,
-                Box::new(|cc| Ok(Box::new(rust_dicom_viewer::WebApp::new(cc)))),
+                Box::new(|_| Ok(Box::new(rust_dicom_viewer::WebApp::new()))),
             )
             .await;
 

@@ -4,7 +4,7 @@ use eframe::egui::{self, ColorImage};
 use egui::{ImageData, TextureHandle, TextureOptions};
 use dicom::{object::{FileDicomObject, InMemDicomObject, Tag, file}};
 use dicom_dictionary_std::tags;
-use dicom_pixeldata::*;
+use dicom_pixeldata::{image, ConvertOptions, PixelDecoder as _, WindowLevel, VoiLutFunction, VoiLutOption, Result};
 use image::RgbImage;
 use crate::app::GradientEnum;
 
@@ -86,11 +86,7 @@ pub struct DCMImage {
 
 impl DCMImage {
     pub fn read_tag(&self, tag: Tag) -> Option<String> {
-        if let Some(t) = self.dicom_object.element_opt(tag).unwrap_or(None) {
-            return Some(String::from(t.to_str().unwrap_or_default()));
-        } else {
-            None
-        }
+        self.dicom_object.element_opt(tag).unwrap_or(None).map(|t| String::from(t.to_str().unwrap_or_default()))
     }
 
     pub fn new(bytes: Vec<u8>) -> Self {
@@ -122,11 +118,11 @@ impl DCMImage {
         }
     }
 
-    pub fn get_image_with_opt(&self, options: ConvertOptions) -> ColorImage {
+    pub fn get_image_with_opt(&self, options: &ConvertOptions) -> ColorImage {
         let pixel_data = self.dicom_object.decode_pixel_data().expect("Unable to decode pixel data");
         convert_to_color_image(
             &pixel_data
-                .to_dynamic_image_with_options(0, &options)
+                .to_dynamic_image_with_options(0, options)
                 .expect("Unable to convert to color image"),
         )
     }
@@ -154,13 +150,12 @@ pub trait WindowLevelParse {
 impl WindowLevelParse for String {
     fn custom_parse(&self) -> Result<f64, ParseFloatError> {
         let mut chars = self.chars().peekable();
-        let mut out = String::new();
-        if let Some(&c) = chars.peek() {
-            if c == '+' || c == '-' {
+        let mut out = Self::new();
+        if let Some(&c) = chars.peek()
+            && (c == '+' || c == '-') {
                 out.push(c);
                 chars.next();
             }
-        }
         let mut seen_dot = false;
         for c in chars {
             if c.is_ascii_digit() {

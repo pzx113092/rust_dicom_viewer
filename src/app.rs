@@ -15,7 +15,7 @@ pub enum GradientEnum {
 }
 
 #[derive(Debug, PartialEq, Eq)]
-#[allow(clippy::upper_case_acronyms)]
+#[expect(clippy::upper_case_acronyms)]
 enum Enum {
     Brain,
     Abdomen,
@@ -68,7 +68,7 @@ impl ViewPort {
                 ImageData::from(img),
                 egui::TextureOptions::default(),
             );
-            tx_map.insert(i, (wl.clone(), GradientEnum::Default, voi_lut_fn, texture, false));
+            tx_map.insert(i, (wl, GradientEnum::Default, voi_lut_fn, texture, false));
         }
 
         Self {
@@ -134,7 +134,7 @@ impl WebApp {
         let vp = ViewPort::new(&self.series_vec[series_i], series_i, ctx);
         let uuid = vp.uuid;
         self.viewports.push(vp);
-        uuid.clone()
+        uuid
     }
 
     fn remove_viewport(&mut self, uuid: Uuid) {
@@ -186,12 +186,12 @@ impl eframe::App for WebApp {
             ui.separator();
 
             if ui.button("Reset").clicked() {
-                *self = WebApp::default();
+                *self = Self::default();
             }
 
-            if self.series_vec.len() == 0 {
-                if ui.button("Select File").clicked() {
-                    let p = self.is_loading.clone();
+            if self.series_vec.is_empty()
+                && ui.button("Select File").clicked() {
+                    let p = std::sync::Arc::<std::sync::Mutex<bool>>::clone(&self.is_loading);
                     if !*p.lock().expect("Err") {
                         
                         let is_loading_clone = std::sync::Arc::clone(&self.is_loading);
@@ -219,7 +219,6 @@ impl eframe::App for WebApp {
                         });
                     }
                 }
-            }
 
             let is_loading = *self.is_loading.lock().expect("Err");
             if is_loading {
@@ -240,25 +239,23 @@ impl eframe::App for WebApp {
                     .show(ui, |ui| {
                         egui::ScrollArea::vertical().show(ui, |ui| {
                             let mut j: Option<usize> = None;
-                            let mut i: usize = 0;
-                            for series in &self.series_vec {
+                            for (i, series) in self.series_vec.iter().enumerate() {
                                 if ui
                                     .add(
                                         Button::image(ImageSource::Texture(
                                             SizedTexture::from_handle(
-                                                &series.texture.as_ref().expect("Thumbnail texture load fail"),
+                                                series.texture.as_ref().expect("Thumbnail texture load fail"),
                                             ),
                                         ))
                                         .fill(Color32::BLACK),
                                     )
                                     .clicked()
                                 {
-                                    j = Some(i.clone());
+                                    j = Some(i);
                                     
                                 }
                                 ui.add(egui::Label::new(&series.description).wrap());
                                 ui.separator();
-                                i += 1;
                             }
                             if let Some(k) = j {
                                 let id = self.new_viewport(ui.ctx(), k);
@@ -292,11 +289,11 @@ impl eframe::App for WebApp {
                     let texture = egui::Context::load_texture(
                         ui.ctx(),
                         vpi.cursor.to_string(),
-                        ImageData::from(img.to_owned()),
+                        ImageData::from(img.clone()),
                         egui::TextureOptions::default(),
                     );
                     let vp = self.find_viewport(&id).expect("Unable to find viewport");
-                    vp.tx_map.insert(vp.cursor, (vp.wl_custom.clone(), vp.colormap.clone(), vp.voi_lut_fn, texture, vp.invert));
+                    vp.tx_map.insert(vp.cursor, (vp.wl_custom, vp.colormap.clone(), vp.voi_lut_fn, texture, vp.invert));
                 }
 
                 let vp = self.find_viewport(&id).expect("Unable to find viewport");
@@ -341,7 +338,7 @@ impl eframe::App for WebApp {
                             .show_inside(ui, |ui|{
                             
                             if ui.button("Reset window").clicked() {
-                                vp.wl_custom = vp.wl.clone();
+                                vp.wl_custom = vp.wl;
                             }
                             ui.separator();
                             ui.add(egui::Slider::new(&mut vp.wl_custom.width, 1.0..=32768.0).text("Window"));
@@ -417,11 +414,10 @@ impl eframe::App for WebApp {
                                     });
                                 }
 
-                                if ui.input(|i| i.pointer.button_down(egui::PointerButton::Middle)) {
-                                    if scene_response.hovered() || scene_response.dragged() {
+                                if ui.input(|i| i.pointer.button_down(egui::PointerButton::Middle))
+                                    && (scene_response.hovered() || scene_response.dragged()) {
                                         vp.pan += ui.input(|i| i.pointer.delta());
                                     }
-                                }
                                 let scaled_size = image_size * vp.zoom;
 
                                 let mut min_pan = egui::Vec2::ZERO;
@@ -455,9 +451,9 @@ impl eframe::App for WebApp {
                                                 if let egui::Event::MouseWheel { delta, .. } = event {
                                                     let scroll = -delta.y.signum() as i8;
                                                     if scroll > 0 && vp.cursor < vp.tx_map.len() - 1 {
-                                                        vp.cursor += scroll.abs() as usize;
+                                                        vp.cursor += scroll.unsigned_abs() as usize;
                                                     } else if scroll < 0 && vp.cursor > 0 {
-                                                        vp.cursor -= scroll.abs() as usize;
+                                                        vp.cursor -= scroll.unsigned_abs() as usize;
                                                     }
                                                 }
                                             }
@@ -465,9 +461,9 @@ impl eframe::App for WebApp {
                                     });
                                 }
 
-                                if scene_response.dragged_by(egui::PointerButton::Primary) {
-                                    if let Some(origin) = ui.input(|i| i.pointer.press_origin()) {
-                                        if image_rect.contains(origin) {
+                                if scene_response.dragged_by(egui::PointerButton::Primary)
+                                    && let Some(origin) = ui.input(|i| i.pointer.press_origin())
+                                        && image_rect.contains(origin) {
                                             let x = scene_response.drag_delta().x as f64;
                                             if (x > 0.0 && vp.wl_custom.width < 32768.0) || (x < 0.0 && vp.wl_custom.width > 1.0) {
                                                 vp.wl_custom.width += x;
@@ -479,8 +475,6 @@ impl eframe::App for WebApp {
                                             }
                                             
                                         }
-                                    }
-                                }
 
                                 painter.image(
                                     texture.id(),
