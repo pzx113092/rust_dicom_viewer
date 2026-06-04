@@ -154,7 +154,7 @@ impl Default for WebApp {
 
 impl WebApp {
     /// Called once before the first frame.
-    pub fn new() -> Self {
+    pub fn new(cc: &eframe::CreationContext<'_>) -> Self {
         // This is also where you can customize the look and feel of egui using
         // `cc.egui_ctx.set_visuals` and `cc.egui_ctx.set_fonts`.
 
@@ -164,7 +164,9 @@ impl WebApp {
         // if let Some(storage) = cc.storage {
         //     eframe::get_value(storage, eframe::APP_KEY).unwrap_or_default()
         // } else {
+        cc.egui_ctx.set_visuals(egui::Visuals::dark());
         Default::default()
+
         // }
     }
     pub fn clear_bytes(&mut self) {
@@ -215,7 +217,6 @@ impl eframe::App for WebApp {
     /// Called each time the UI needs repainting, which may be many times per second.
     #[expect(clippy::too_many_lines)]
     fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
-        ui.set_visuals(egui::Visuals::dark());
         if let Some(downloaded_files) = self.file_bytes.lock().expect("Unable to lock data").take()
         {
             for (_name, bytes) in downloaded_files {
@@ -229,13 +230,18 @@ impl eframe::App for WebApp {
         }
 
         egui::Panel::top("top_panel").show_inside(ui, |ui| {
+            egui::MenuBar::new().ui(ui, |ui| {
+                egui::widgets::global_theme_preference_switch(ui);
+            });
             ui.separator();
 
-            if ui.button("Reset").clicked() {
-                *self = Self::default();
-            }
-
-            if self.series_vec.is_empty() && ui.button("Select File").clicked() {
+            if self.series_vec.is_empty()
+                && ui
+                    .button("Select File")
+                    .on_hover_text("Select one or more .dcm files to load")
+                    .on_hover_cursor(egui::CursorIcon::PointingHand)
+                    .clicked()
+            {
                 let p = std::sync::Arc::<std::sync::Mutex<bool>>::clone(&self.is_loading);
                 if !*p.lock().expect("Err") {
                     let is_loading_clone = std::sync::Arc::clone(&self.is_loading);
@@ -264,6 +270,15 @@ impl eframe::App for WebApp {
                 }
             }
 
+            if ui
+                .button("Reset")
+                .on_hover_text("Reset app to initial state")
+                .on_hover_cursor(egui::CursorIcon::PointingHand)
+                .clicked()
+            {
+                *self = Self::default();
+            }
+
             let is_loading = *self.is_loading.lock().expect("Err");
             if is_loading {
                 ui.horizontal(|ui| {
@@ -276,7 +291,7 @@ impl eframe::App for WebApp {
         });
 
         egui::Panel::left("left_panel")
-            .resizable(false)
+            .resizable(true)
             .show_inside(ui, |ui| {
                 egui::containers::Frame::group(ui.style())
                     .stroke(Stroke::new(0.0, Color32::BLACK))
@@ -296,6 +311,7 @@ impl eframe::App for WebApp {
                                         ))
                                         .fill(Color32::BLACK),
                                     )
+                                    .on_hover_cursor(egui::CursorIcon::PointingHand)
                                     .clicked()
                                 {
                                     j = Some(i);
@@ -362,18 +378,29 @@ impl eframe::App for WebApp {
                     .constrain_to(ui.available_rect_before_wrap())
                     .resizable(true)
                     .min_size(av_s / 1.4)
-                    .max_size(av_s * 0.95)
+                    .max_size(av_s * 0.98)
                     .open(&mut open)
                     .show(ui, |ui| {
-                        ui.horizontal(|ui| {
-                            ui.label("Toolbar:");
-                            if ui.button("Reset View").clicked() {
-                                vp.zoom = 1.0;
-                                vp.pan = egui::Vec2::ZERO;
-                            }
+                        // ui.horizontal(|ui| {
+                        //     // Toolbar
+                        //     if ui
+                        //         .button("Reset View")
+                        //         .on_hover_cursor(egui::CursorIcon::PointingHand)
+                        //         .clicked()
+                        //     {
+                        //         vp.zoom = 1.0;
+                        //         vp.pan = egui::Vec2::ZERO;
+                        //     }
+                        // });
+                        egui::Panel::top("top_window_panel").show_inside(ui, |ui| {
+                            egui::MenuBar::new().ui(ui, |ui| {
+                                if ui.button("Reset View").on_hover_cursor(egui::CursorIcon::PointingHand).clicked() {
+                                    vp.zoom = 1.0;
+                                    vp.pan = egui::Vec2::ZERO;
+                                }
+                            });
                         });
-
-                        ui.separator();
+                        ui.add_space(10.0);
 
                         egui::Panel::left(format!("{}_left", &id))
                             .resizable(false)
@@ -385,25 +412,32 @@ impl eframe::App for WebApp {
                                     egui::Slider::new(&mut vp.cursor, vp.tx_map.len() - 1..=0)
                                         .vertical()
                                         .show_value(false),
-                                );
+                                )
+                                .on_hover_cursor(egui::CursorIcon::PointingHand);
                             });
 
                         egui::Panel::right(format!("{}_right", &id))
                             .resizable(false)
                             .min_size(250.0)
                             .show_inside(ui, |ui| {
-                                if ui.button("Reset window").clicked() {
+                                if ui
+                                    .button("Reset window")
+                                    .on_hover_cursor(egui::CursorIcon::PointingHand)
+                                    .clicked()
+                                {
                                     vp.wl_custom = vp.wl;
                                 }
                                 ui.separator();
                                 ui.add(
                                     egui::Slider::new(&mut vp.wl_custom.width, 1.0..=32768.0)
                                         .text("Window"),
-                                );
+                                )
+                                .on_hover_cursor(egui::CursorIcon::PointingHand);
                                 ui.add(
                                     egui::Slider::new(&mut vp.wl_custom.center, -32768.0..=32768.0)
                                         .text("Level"),
-                                );
+                                )
+                                .on_hover_cursor(egui::CursorIcon::PointingHand);
                                 ui.separator();
 
                                 let before = vp.wl_custom;
@@ -429,7 +463,10 @@ impl eframe::App for WebApp {
                                                 format!("{:?}", item.0),
                                             );
                                         }
-                                    });
+                                    })
+                                    .response
+                                    .on_hover_text("Some window level presets for CT images")
+                                    .on_hover_cursor(egui::CursorIcon::PointingHand);
                                 ui.separator();
                                 egui::ComboBox::from_label("LUT")
                                     .selected_text(format!("{:?}", &vp.colormap))
@@ -454,7 +491,9 @@ impl eframe::App for WebApp {
                                             GradientEnum::Warm,
                                             "Warm",
                                         );
-                                    });
+                                    })
+                                    .response
+                                    .on_hover_text("Color gradient");
                                 ui.separator();
                                 egui::ComboBox::from_label("LUT Shape")
                                     .selected_text(format!("{:?}", &vp.voi_lut_fn))
@@ -474,9 +513,13 @@ impl eframe::App for WebApp {
                                             VoiLutFunction::Sigmoid,
                                             "Sigmoid",
                                         );
-                                    });
+                                    })
+                                    .response
+                                    .on_hover_text("LUT shape")
+                                    .on_hover_cursor(egui::CursorIcon::PointingHand);
                                 ui.separator();
-                                ui.checkbox(&mut vp.invert, "Invert");
+                                ui.checkbox(&mut vp.invert, "Invert")
+                                    .on_hover_cursor(egui::CursorIcon::PointingHand);
                             });
 
                         egui::CentralPanel::default().show_inside(ui, |ui| {
@@ -497,7 +540,7 @@ impl eframe::App for WebApp {
                                             if raw_zoom_delta != 1.0 {
                                                 let dampened = 1.0 + (raw_zoom_delta - 1.0) * 0.25;
                                                 vp.zoom *= dampened;
-                                                vp.zoom = vp.zoom.clamp(0.1, 10.0);
+                                                vp.zoom = vp.zoom.clamp(0.1, 15.0);
                                             }
                                         }
                                     });
@@ -592,6 +635,16 @@ impl eframe::App for WebApp {
                                 //     egui::FontId::proportional(14.0),
                                 //     egui::Color32::GREEN,
                                 // );
+
+                                painter.text(
+                                    scene_rect.left_bottom() + egui::vec2(10.0, -10.0),
+                                    egui::Align2::LEFT_BOTTOM,
+                                    format!(
+                                        "Pan: MOUSE3\nScroll: SCROLL\nZoom: CTRL + SCROLL\nWindow level: MOUSE1"
+                                    ),
+                                    egui::FontId::proportional(10.0),
+                                    egui::Color32::GRAY,
+                                );
                             });
                         });
                     });
@@ -607,7 +660,26 @@ impl eframe::App for WebApp {
 
             ui.with_layout(egui::Layout::bottom_up(egui::Align::LEFT), |ui| {
                 egui::warn_if_debug_build(ui);
+                powered_by_egui_and_eframe(ui);
+                ui.hyperlink_to(
+                    "Source code",
+                    "https://github.com/pzx113092/rust_dicom_viewer",
+                )
             });
         });
     }
+}
+
+fn powered_by_egui_and_eframe(ui: &mut egui::Ui) {
+    ui.horizontal(|ui| {
+        ui.spacing_mut().item_spacing.x = 0.0;
+        ui.label("Powered by ");
+        ui.hyperlink_to("egui", "https://github.com/emilk/egui");
+        ui.label(" and ");
+        ui.hyperlink_to(
+            "eframe",
+            "https://github.com/emilk/egui/tree/master/crates/eframe",
+        );
+        ui.label(".");
+    });
 }

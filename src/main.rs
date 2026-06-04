@@ -22,7 +22,7 @@ fn main() -> eframe::Result {
     eframe::run_native(
         "eframe template",
         native_options,
-        Box::new(|_| Ok(Box::new(rust_dicom_viewer::WebApp::new()))),
+        Box::new(|cc| Ok(Box::new(rust_dicom_viewer::WebApp::new(cc)))),
     )
 }
 
@@ -50,7 +50,7 @@ fn main() {
             .start(
                 canvas,
                 web_options,
-                Box::new(|_| Ok(Box::new(rust_dicom_viewer::WebApp::new()))),
+                Box::new(|cc| Ok(Box::new(rust_dicom_viewer::WebApp::new(cc)))),
             )
             .await;
 
@@ -62,7 +62,7 @@ fn main() {
                 }
                 Err(e) => {
                     loading_text.set_inner_html(
-                        "<p> The app has crashed. See the developer console for details. </p>",
+                        &format!("<p> The app failed to load. Make sure to have WebGL2 enabled. You can also try using a different browser. </p><p> Error:  {:?}</p>", e),
                     );
                     panic!("Failed to start eframe: {e:?}");
                 }
