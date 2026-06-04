@@ -186,7 +186,7 @@ pub struct DCMSeries {
     pub texture: Option<TextureHandle>,
 }
 
-#[allow(clippy::missing_errors_doc)]
+#[expect(clippy::missing_errors_doc)]
 pub trait WindowLevelParse {
     fn custom_parse(&self) -> Result<f64, ParseFloatError>;
 }
