@@ -1,3 +1,4 @@
+#![warn(clippy::all, rust_2018_idioms)]
 use std::num::ParseFloatError;
 use eframe::egui::{self, ColorImage};
 use egui::{ImageData, TextureHandle, TextureOptions};
@@ -29,20 +30,20 @@ pub fn convert_to_color_image(image: &image::DynamicImage) -> egui::ColorImage {
 }
 
 pub fn convert_to_dynamic_image(dcm_image: &DCMImage, options: &ConvertOptions) -> image::DynamicImage {
-    let pixeladata = dcm_image.dicom_object.decode_pixel_data().unwrap();
+    let pixeladata = dcm_image.dicom_object.decode_pixel_data().expect("Unable to decode pixel data");
     if options == &ConvertOptions::default() {
-        pixeladata.to_dynamic_image(0).unwrap()
+        pixeladata.to_dynamic_image(0).expect("Unable to convert pixel data to dynamic image")
     } else {
         pixeladata
             .to_dynamic_image_with_options(0, options)
-            .unwrap()
+            .expect("Unable to convert pixel data to dynamic image")
     }
 }
 
 pub fn get_image_with_opt_colormap(dcm_image: &DCMImage, wl: &WindowLevel, colormap: &GradientEnum, invert: bool, voi_fn: &VoiLutFunction) -> egui::ColorImage {
     let options = &ConvertOptions::new().with_voi_lut(VoiLutOption::CustomWithFunction(*wl, *voi_fn));
-    let pixeldata = dcm_image.dicom_object.decode_pixel_data().unwrap();
-    let mut dynamic_image = pixeldata.to_dynamic_image_with_options(0, options).unwrap();
+    let pixeldata = dcm_image.dicom_object.decode_pixel_data().expect("Unable to decode pixel data");
+    let mut dynamic_image = pixeldata.to_dynamic_image_with_options(0, options).expect("Unable to convert pixel data to dynamic image");
     let colormap = match colormap {
         GradientEnum::Grays => colorous::GREYS,
         GradientEnum::Oranges => colorous::ORANGES,
@@ -85,8 +86,8 @@ pub struct DCMImage {
 
 impl DCMImage {
     pub fn read_tag(&self, tag: Tag) -> Option<String> {
-        if let Some(t) = self.dicom_object.element_opt(tag).unwrap() {
-            return Some(String::from(t.to_str().unwrap()));
+        if let Some(t) = self.dicom_object.element_opt(tag).unwrap_or(None) {
+            return Some(String::from(t.to_str().unwrap_or_default()));
         } else {
             None
         }
@@ -95,16 +96,16 @@ impl DCMImage {
     pub fn new(bytes: Vec<u8>) -> Self {
         let cursor = std::io::Cursor::new(bytes);
         //let file_name = file_name;
-        let dicom_object = file::from_reader(cursor).unwrap();
+        let dicom_object = file::from_reader(cursor).expect("Unable to create image");
         let instance_number: i16 =
-            if let Some(t) = dicom_object.element_opt(tags::INSTANCE_NUMBER).unwrap() {
-                String::from(t.to_str().unwrap()).parse().unwrap_or(0)
+            if let Some(t) = dicom_object.element_opt(tags::INSTANCE_NUMBER).unwrap_or(None) {
+                String::from(t.to_str().unwrap_or_default()).parse().unwrap_or(0)
             } else {
                 0
             };
         let series_number: i16 =
-            if let Some(t) = dicom_object.element_opt(tags::SERIES_NUMBER).unwrap() {
-                String::from(t.to_str().unwrap()).parse().unwrap_or(-1)
+            if let Some(t) = dicom_object.element_opt(tags::SERIES_NUMBER).unwrap_or(None) {
+                String::from(t.to_str().unwrap_or_default()).parse().unwrap_or(-1)
             } else {
                 -1
             };
@@ -122,17 +123,17 @@ impl DCMImage {
     }
 
     pub fn get_image_with_opt(&self, options: ConvertOptions) -> ColorImage {
-        let pixel_data = self.dicom_object.decode_pixel_data().unwrap();
+        let pixel_data = self.dicom_object.decode_pixel_data().expect("Unable to decode pixel data");
         convert_to_color_image(
             &pixel_data
                 .to_dynamic_image_with_options(0, &options)
-                .unwrap(),
+                .expect("Unable to convert to color image"),
         )
     }
 
     pub fn get_image(&self) -> ColorImage {
-        let pixel_data = self.dicom_object.decode_pixel_data().unwrap();
-        convert_to_color_image(&pixel_data.to_dynamic_image(0).unwrap())
+        let pixel_data = self.dicom_object.decode_pixel_data().expect("Unable to decode pixel data");
+        convert_to_color_image(&pixel_data.to_dynamic_image(0).expect("Unable to convert to color image"))
     }
 }
 
@@ -212,8 +213,8 @@ impl DCMSeries {
         self.series
             .sort_by(|a, b| a.instance_number.cmp(&b.instance_number));
         let i = self.series.len() / 2;
-        let pixeldata = &self.series[i].dicom_object.decode_pixel_data().unwrap();
-        let dynamic_image = pixeldata.to_dynamic_image(0).unwrap().resize_exact(
+        let pixeldata = &self.series[i].dicom_object.decode_pixel_data().expect("Unable to decode pixel data");
+        let dynamic_image = pixeldata.to_dynamic_image(0).expect("Unable to create dynamic image").resize_exact(
             64,
             64,
             image::imageops::FilterType::Triangle,

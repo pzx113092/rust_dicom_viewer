@@ -1,11 +1,12 @@
-use crate::dcm::*;
+#![warn(clippy::all, rust_2018_idioms)]
+use crate::dcm::{DCMSeries, DCMImage, add_to_series, get_image_with_opt_colormap};
 use egui::load::SizedTexture;
 use egui::{Button, Color32, ImageData, ImageSource, Stroke, TextureHandle};
 use dicom_pixeldata::VoiLutFunction;
 use std::collections::{BTreeMap, HashMap};
 use uuid::Uuid;
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum GradientEnum {
     Default,
     Grays,
@@ -13,7 +14,8 @@ pub enum GradientEnum {
     Warm,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Eq)]
+#[allow(clippy::upper_case_acronyms)]
 enum Enum {
     Brain,
     Abdomen,
@@ -53,13 +55,12 @@ impl ViewPort {
     fn new(series: &DCMSeries, series_i: usize, ctx: &egui::Context) -> Self {
         
         let uuid = Uuid::new_v4();
-        let wl = series.default_wl.clone();
-        let wl_custom = wl.clone();
+        let wl = series.default_wl;
+        let wl_custom = wl;
         let cursor = 0;
         let mut tx_map= BTreeMap::new();
         let voi_lut_fn = VoiLutFunction::Linear;
-        let mut i: usize = 0;
-        for image in &series.series {
+        for (i, image) in series.series.iter().enumerate() {
             let img = image.get_image();
             let texture = egui::Context::load_texture(
                 ctx,
@@ -68,7 +69,6 @@ impl ViewPort {
                 egui::TextureOptions::default(),
             );
             tx_map.insert(i, (wl.clone(), GradientEnum::Default, voi_lut_fn, texture, false));
-            i += 1;
         }
 
         Self {
@@ -171,7 +171,7 @@ impl eframe::App for WebApp {
     /// Called each time the UI needs repainting, which may be many times per second.
     fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
         ui.set_visuals(egui::Visuals::dark());
-        if let Some(downloaded_files) = self.file_bytes.lock().unwrap().take() {
+        if let Some(downloaded_files) = self.file_bytes.lock().expect("Unable to lock data").take() {
             for (_name, bytes) in downloaded_files {
                 let img = DCMImage::new(bytes);
                 add_to_series(&mut self.series_vec, img);
@@ -179,7 +179,7 @@ impl eframe::App for WebApp {
             for series in &mut self.series_vec {
                 series.finalize(ui.ctx());
             }
-            *self.is_loading.lock().unwrap() = false;
+            *self.is_loading.lock().expect("idk") = false;
         }
 
         egui::Panel::top("top_panel").show_inside(ui, |ui| {
@@ -192,7 +192,7 @@ impl eframe::App for WebApp {
             if self.series_vec.len() == 0 {
                 if ui.button("Select File").clicked() {
                     let p = self.is_loading.clone();
-                    if !*p.lock().unwrap() {
+                    if !*p.lock().expect("Err") {
                         
                         let is_loading_clone = std::sync::Arc::clone(&self.is_loading);
                         let file_bytes_clone = std::sync::Arc::clone(&self.file_bytes);
@@ -205,7 +205,7 @@ impl eframe::App for WebApp {
                                 .pick_files()
                                 .await
                             {
-                                *is_loading_clone.lock().unwrap() = true;
+                                *is_loading_clone.lock().expect("Err") = true;
                                 ctx_clone.request_repaint();
                                 let mut raw_files = Vec::new();
                                 for file in files {
@@ -213,7 +213,7 @@ impl eframe::App for WebApp {
                                     let bytes = file.read().await;
                                     raw_files.push((name, bytes));
                                 }
-                                *file_bytes_clone.lock().unwrap() = Some(raw_files);
+                                *file_bytes_clone.lock().expect("Err") = Some(raw_files);
                                 ctx_clone.request_repaint();
                             }
                         });
@@ -221,7 +221,7 @@ impl eframe::App for WebApp {
                 }
             }
 
-            let is_loading = *self.is_loading.lock().unwrap();
+            let is_loading = *self.is_loading.lock().expect("Err");
             if is_loading {
                 ui.horizontal(|ui| {
                     ui.spinner();
@@ -246,7 +246,7 @@ impl eframe::App for WebApp {
                                     .add(
                                         Button::image(ImageSource::Texture(
                                             SizedTexture::from_handle(
-                                                &series.texture.as_ref().unwrap(),
+                                                &series.texture.as_ref().expect("Thumbnail texture load fail"),
                                             ),
                                         ))
                                         .fill(Color32::BLACK),
@@ -274,7 +274,7 @@ impl eframe::App for WebApp {
             for (id, was_open) in entries {
                 let mut open = was_open;
                 
-                let vpi = self.find_viewport_imm(&id).unwrap();
+                let vpi = self.find_viewport_imm(&id).expect("Unable to find viewport");
                 
                 let tex = &vpi.tx_map[&vpi.cursor];
                 if tex.0 != vpi.wl_custom ||
@@ -295,11 +295,11 @@ impl eframe::App for WebApp {
                         ImageData::from(img.to_owned()),
                         egui::TextureOptions::default(),
                     );
-                    let vp = self.find_viewport(&id).unwrap();
+                    let vp = self.find_viewport(&id).expect("Unable to find viewport");
                     vp.tx_map.insert(vp.cursor, (vp.wl_custom.clone(), vp.colormap.clone(), vp.voi_lut_fn, texture, vp.invert));
                 }
 
-                let vp = self.find_viewport(&id).unwrap();
+                let vp = self.find_viewport(&id).expect("Unable to find viewport");
                 let texture = &vp.tx_map[&vp.cursor].3;
                 let image_size = texture.size_vec2();
                 let av_s = ui.available_size_before_wrap();

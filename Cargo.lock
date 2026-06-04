@@ -4023,11 +4023,9 @@ dependencies = [
  "egui_extras",
  "env_logger",
  "image",
- "log",
  "poll-promise",
  "rfd",
  "time",
- "tokio",
  "uuid",
  "wasm-bindgen-futures",
  "web-sys",
@@ -4674,15 +4672,6 @@ checksum = "42d3e9c45c09de15d06dd8acf5f4e0e399e85927b7f00711024eb7ae10fa4869"
 dependencies = [
  "displaydoc",
  "zerovec",
-]
-
-[[package]]
-name = "tokio"
-version = "1.52.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8fc7f01b389ac15039e4dc9531aa973a135d7a4135281b12d7c1bc79fd57fffe"
-dependencies = [
- "pin-project-lite",
 ]
 
 [[package]]

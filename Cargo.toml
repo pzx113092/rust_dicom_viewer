@@ -14,7 +14,6 @@ targets = ["wasm32-unknown-unknown"]
 [dependencies]
 egui = "0.34.1"
 eframe = { version = "0.34.1", features = ["persistence"] }
-log = "0.4.27"
 dicom = "0.9"
 dicom-dictionary-std = "0.9.0"
 dicom-dump = "0.9.1"
@@ -22,7 +21,6 @@ dicom-pixeldata = { version = "0.9", features = ["image"] }
 egui_extras = {version = "0.34.2", features = ["all_loaders"]}
 image = "0.25"
 time = "0.3.47"
-
 
 # You only need serde if you want app persistence:
 # serde = { version = "1.0.219", features = ["derive"] }
@@ -35,12 +33,11 @@ wasm-bindgen-futures = "0.4.50"
 # native:
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 env_logger = "0.11.8"
-tokio = {version = "1.52.3", features = ["rt-multi-thread", "time"]}
 
 # web:
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 wasm-bindgen-futures = "0.4.50"
-web-sys = "0.3.70"              # to access the DOM (to hide the loading text)
+web-sys = "0.3.70"
 
 [profile.release]
 opt-level = 2 # fast and small wasm
