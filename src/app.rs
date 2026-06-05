@@ -209,6 +209,7 @@ impl WebApp {
     }
 }
 
+#[expect(clippy::too_many_lines)]
 impl eframe::App for WebApp {
     fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
         if let Some(downloaded_files) = self.file_bytes.lock().expect("Unable to lock data").take()
