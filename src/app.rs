@@ -209,13 +209,8 @@ impl WebApp {
     }
 }
 
+#[expect(clippy::too_many_lines)]
 impl eframe::App for WebApp {
-    // Called by the framework to save state before shutdown.
-    // fn save(&mut self, storage: &mut dyn eframe::Storage) {
-    //     eframe::set_value(storage, eframe::APP_KEY, self);
-    // }
-    /// Called each time the UI needs repainting, which may be many times per second.
-    #[expect(clippy::too_many_lines)]
     fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
         if let Some(downloaded_files) = self.file_bytes.lock().expect("Unable to lock data").take()
         {
@@ -328,336 +323,7 @@ impl eframe::App for WebApp {
             });
 
         egui::CentralPanel::default_margins().show_inside(ui, |ui| {
-            let entries: Vec<(Uuid, bool)> = self.windows.iter().map(|(k, v)| (*k, *v)).collect();
-
-            for (id, was_open) in entries {
-                let mut open = was_open;
-
-                let vpi = self
-                    .find_viewport_imm(&id)
-                    .expect("Unable to find viewport");
-
-                let tex = &vpi.tx_map[&vpi.cursor];
-                if tex.0 != vpi.wl_custom
-                    || tex.1 != vpi.colormap
-                    || tex.2 != vpi.voi_lut_fn
-                    || tex.4 != vpi.invert
-                {
-                    let img = get_image_with_opt_colormap(
-                        &self.series_vec[vpi.series_i].series[vpi.cursor],
-                        &vpi.wl_custom,
-                        &vpi.colormap,
-                        vpi.invert,
-                        &vpi.voi_lut_fn,
-                    );
-
-                    let texture = egui::Context::load_texture(
-                        ui.ctx(),
-                        vpi.cursor.to_string(),
-                        ImageData::from(img.clone()),
-                        egui::TextureOptions::default(),
-                    );
-                    let vp = self.find_viewport(&id).expect("Unable to find viewport");
-                    vp.tx_map.insert(
-                        vp.cursor,
-                        (
-                            vp.wl_custom,
-                            vp.colormap.clone(),
-                            vp.voi_lut_fn,
-                            texture,
-                            vp.invert,
-                        ),
-                    );
-                }
-
-                let vp = self.find_viewport(&id).expect("Unable to find viewport");
-                let texture = &vp.tx_map[&vp.cursor].3;
-                let image_size = texture.size_vec2();
-                let av_s = ui.available_size_before_wrap();
-                egui::Window::new(id.to_string())
-                    .constrain_to(ui.available_rect_before_wrap())
-                    .resizable(true)
-                    .min_size(av_s / 1.4)
-                    .max_size(av_s * 0.98)
-                    .open(&mut open)
-                    .show(ui, |ui| {
-                        // ui.horizontal(|ui| {
-                        //     // Toolbar
-                        //     if ui
-                        //         .button("Reset View")
-                        //         .on_hover_cursor(egui::CursorIcon::PointingHand)
-                        //         .clicked()
-                        //     {
-                        //         vp.zoom = 1.0;
-                        //         vp.pan = egui::Vec2::ZERO;
-                        //     }
-                        // });
-                        egui::Panel::top("top_window_panel").show_inside(ui, |ui| {
-                            egui::MenuBar::new().ui(ui, |ui| {
-                                if ui.button("Reset View").on_hover_cursor(egui::CursorIcon::PointingHand).clicked() {
-                                    vp.zoom = 1.0;
-                                    vp.pan = egui::Vec2::ZERO;
-                                }
-                            });
-                        });
-                        ui.add_space(10.0);
-
-                        egui::Panel::left(format!("{}_left", &id))
-                            .resizable(false)
-                            .max_size(30.0)
-                            .show_inside(ui, |ui| {
-                                let available_height = ui.available_height() - 10.0;
-                                ui.spacing_mut().slider_width = available_height.max(10.0);
-                                ui.add(
-                                    egui::Slider::new(&mut vp.cursor, vp.tx_map.len() - 1..=0)
-                                        .vertical()
-                                        .show_value(false),
-                                )
-                                .on_hover_cursor(egui::CursorIcon::PointingHand);
-                            });
-
-                        egui::Panel::right(format!("{}_right", &id))
-                            .resizable(false)
-                            .min_size(250.0)
-                            .show_inside(ui, |ui| {
-                                if ui
-                                    .button("Reset window")
-                                    .on_hover_cursor(egui::CursorIcon::PointingHand)
-                                    .clicked()
-                                {
-                                    vp.wl_custom = vp.wl;
-                                }
-                                ui.separator();
-                                ui.add(
-                                    egui::Slider::new(&mut vp.wl_custom.width, 1.0..=32768.0)
-                                        .text("Window"),
-                                )
-                                .on_hover_cursor(egui::CursorIcon::PointingHand);
-                                ui.add(
-                                    egui::Slider::new(&mut vp.wl_custom.center, -32768.0..=32768.0)
-                                        .text("Level"),
-                                )
-                                .on_hover_cursor(egui::CursorIcon::PointingHand);
-                                ui.separator();
-
-                                let before = vp.wl_custom;
-                                let mut found = false;
-
-                                for item in CT_PRESETS {
-                                    if item.1 == before {
-                                        vp.ct_preset = item.0;
-                                        found = true;
-                                        break;
-                                    }
-                                }
-                                if !found {
-                                    vp.ct_preset = Enum::Custom;
-                                }
-                                egui::ComboBox::from_label("CT window presets")
-                                    .selected_text(format!("{:?}", vp.ct_preset))
-                                    .show_ui(ui, |ui| {
-                                        for item in CT_PRESETS {
-                                            ui.selectable_value(
-                                                &mut vp.wl_custom,
-                                                item.1,
-                                                format!("{:?}", item.0),
-                                            );
-                                        }
-                                    })
-                                    .response
-                                    .on_hover_text("Some window level presets for CT images")
-                                    .on_hover_cursor(egui::CursorIcon::PointingHand);
-                                ui.separator();
-                                egui::ComboBox::from_label("LUT")
-                                    .selected_text(format!("{:?}", &vp.colormap))
-                                    .show_ui(ui, |ui| {
-                                        ui.selectable_value(
-                                            &mut vp.colormap,
-                                            GradientEnum::Default,
-                                            "Default",
-                                        );
-                                        ui.selectable_value(
-                                            &mut vp.colormap,
-                                            GradientEnum::Grays,
-                                            "Grays",
-                                        );
-                                        ui.selectable_value(
-                                            &mut vp.colormap,
-                                            GradientEnum::Oranges,
-                                            "Oranges",
-                                        );
-                                        ui.selectable_value(
-                                            &mut vp.colormap,
-                                            GradientEnum::Warm,
-                                            "Warm",
-                                        );
-                                    })
-                                    .response
-                                    .on_hover_text("Color gradient");
-                                ui.separator();
-                                egui::ComboBox::from_label("LUT Shape")
-                                    .selected_text(format!("{:?}", &vp.voi_lut_fn))
-                                    .show_ui(ui, |ui| {
-                                        ui.selectable_value(
-                                            &mut vp.voi_lut_fn,
-                                            VoiLutFunction::Linear,
-                                            "Linear (default)",
-                                        );
-                                        ui.selectable_value(
-                                            &mut vp.voi_lut_fn,
-                                            VoiLutFunction::LinearExact,
-                                            "Linear exact",
-                                        );
-                                        ui.selectable_value(
-                                            &mut vp.voi_lut_fn,
-                                            VoiLutFunction::Sigmoid,
-                                            "Sigmoid",
-                                        );
-                                    })
-                                    .response
-                                    .on_hover_text("LUT shape")
-                                    .on_hover_cursor(egui::CursorIcon::PointingHand);
-                                ui.separator();
-                                ui.checkbox(&mut vp.invert, "Invert")
-                                    .on_hover_cursor(egui::CursorIcon::PointingHand);
-                            });
-
-                        egui::CentralPanel::default().show_inside(ui, |ui| {
-                            egui::Frame::canvas(ui.style()).show(ui, |ui| {
-                                let available_size = ui.available_size();
-                                let (scene_response, painter) = ui.allocate_painter(
-                                    available_size,
-                                    egui::Sense::click_and_drag(),
-                                );
-                                let scene_rect = scene_response.rect;
-                                let pointer_pos =
-                                    ui.pointer_hover_pos().unwrap_or(egui::Pos2::ZERO);
-
-                                if scene_response.hovered() {
-                                    ui.input(|i| {
-                                        if i.modifiers.ctrl {
-                                            let raw_zoom_delta = i.zoom_delta();
-                                            if raw_zoom_delta != 1.0 {
-                                                let dampened = 1.0 + (raw_zoom_delta - 1.0) * 0.25;
-                                                vp.zoom *= dampened;
-                                                vp.zoom = vp.zoom.clamp(0.1, 15.0);
-                                            }
-                                        }
-                                    });
-                                }
-
-                                if ui.input(|i| i.pointer.button_down(egui::PointerButton::Middle))
-                                    && (scene_response.hovered() || scene_response.dragged())
-                                {
-                                    vp.pan += ui.input(|i| i.pointer.delta());
-                                }
-                                let scaled_size = image_size * vp.zoom;
-
-                                let mut min_pan = egui::Vec2::ZERO;
-                                let mut max_pan = egui::Vec2::ZERO;
-
-                                if scaled_size.x > scene_rect.width() {
-                                    let max_x = (scaled_size.x - scene_rect.width()) / 2.0;
-                                    min_pan.x = -max_x;
-                                    max_pan.x = max_x;
-                                }
-                                if scaled_size.y > scene_rect.height() {
-                                    let max_y = (scaled_size.y - scene_rect.height()) / 2.0;
-                                    min_pan.y = -max_y;
-                                    max_pan.y = max_y;
-                                }
-
-                                vp.pan = vp.pan.clamp(min_pan, max_pan);
-
-                                let center_offset = (scene_rect.size() - scaled_size) / 2.0;
-                                let image_rect = egui::Rect::from_min_size(
-                                    scene_rect.min + center_offset + vp.pan,
-                                    scaled_size,
-                                );
-
-                                let is_hovering_image = image_rect.contains(pointer_pos);
-
-                                if scene_response.hovered() && is_hovering_image {
-                                    ui.input(|i| {
-                                        if !i.modifiers.ctrl {
-                                            for event in &i.events {
-                                                if let egui::Event::MouseWheel { delta, .. } = event
-                                                {
-                                                    let scroll = -delta.y.signum() as i8;
-                                                    if scroll > 0 && vp.cursor < vp.tx_map.len() - 1
-                                                    {
-                                                        vp.cursor += scroll.unsigned_abs() as usize;
-                                                    } else if scroll < 0 && vp.cursor > 0 {
-                                                        vp.cursor -= scroll.unsigned_abs() as usize;
-                                                    }
-                                                }
-                                            }
-                                        }
-                                    });
-                                }
-
-                                if scene_response.dragged_by(egui::PointerButton::Primary)
-                                    && let Some(origin) = ui.input(|i| i.pointer.press_origin())
-                                    && image_rect.contains(origin)
-                                {
-                                    let x = scene_response.drag_delta().x as f64;
-                                    if (x > 0.0 && vp.wl_custom.width < 32768.0)
-                                        || (x < 0.0 && vp.wl_custom.width > 1.0)
-                                    {
-                                        vp.wl_custom.width += x;
-                                    }
-
-                                    let y = -scene_response.drag_delta().y as f64;
-                                    if (y > 0.0 && vp.wl_custom.center < 32768.0)
-                                        || (y < 0.0 && vp.wl_custom.center > -32768.0)
-                                    {
-                                        vp.wl_custom.center += y;
-                                    }
-                                }
-
-                                painter.image(
-                                    texture.id(),
-                                    image_rect,
-                                    egui::Rect::from_min_max(
-                                        egui::pos2(0.0, 0.0),
-                                        egui::pos2(1.0, 1.0),
-                                    ),
-                                    egui::Color32::WHITE,
-                                );
-
-                                // painter.text(
-                                //     scene_rect.left_top() + egui::vec2(10.0, 10.0),
-                                //     egui::Align2::LEFT_TOP,
-                                //     format!(
-                                //         "Zoom: {:.2}x\nScroll Val: {}\nDrag Val: x:{:.1}, y:{:.1}\nWL: ({:.1}, {:.1})",
-                                //         vp.zoom, vp.scroll_value, vp.wl_custom.width, vp.wl_custom.center, vp.wl.width, vp.wl.center
-                                //     ),
-                                //     egui::FontId::proportional(14.0),
-                                //     egui::Color32::GREEN,
-                                // );
-
-                                painter.text(
-                                    scene_rect.left_bottom() + egui::vec2(10.0, -10.0),
-                                    egui::Align2::LEFT_BOTTOM,
-                                    format!(
-                                        "Pan: MOUSE3\nScroll: SCROLL\nZoom: CTRL + SCROLL\nWindow level: MOUSE1"
-                                    ),
-                                    egui::FontId::proportional(10.0),
-                                    egui::Color32::GRAY,
-                                );
-                            });
-                        });
-                    });
-
-                if !open {
-                    self.windows.remove(&id);
-                    self.remove_viewport(id);
-                }
-                if !was_open {
-                    self.remove_viewport(id);
-                }
-            }
-
+            viewport_windows(self, ui);
             ui.with_layout(egui::Layout::bottom_up(egui::Align::LEFT), |ui| {
                 egui::warn_if_debug_build(ui);
                 powered_by_egui_and_eframe(ui);
@@ -682,4 +348,290 @@ fn powered_by_egui_and_eframe(ui: &mut egui::Ui) {
         );
         ui.label(".");
     });
+}
+
+#[expect(clippy::too_many_lines)]
+fn viewport_windows(app: &mut WebApp, ui: &egui::Ui) {
+    let entries: Vec<(Uuid, bool)> = app.windows.iter().map(|(k, v)| (*k, *v)).collect();
+    for (id, was_open) in entries {
+        let mut open = was_open;
+        let vpi = app.find_viewport_imm(&id).expect("Unable to find viewport");
+        let tex = &vpi.tx_map[&vpi.cursor];
+        if tex.0 != vpi.wl_custom
+            || tex.1 != vpi.colormap
+            || tex.2 != vpi.voi_lut_fn
+            || tex.4 != vpi.invert
+        {
+            let img = get_image_with_opt_colormap(
+                &app.series_vec[vpi.series_i].series[vpi.cursor],
+                &vpi.wl_custom,
+                &vpi.colormap,
+                vpi.invert,
+                &vpi.voi_lut_fn,
+            );
+
+            let texture = egui::Context::load_texture(
+                ui.ctx(),
+                vpi.cursor.to_string(),
+                ImageData::from(img.clone()),
+                egui::TextureOptions::default(),
+            );
+            let vp = app.find_viewport(&id).expect("Unable to find viewport");
+            vp.tx_map.insert(
+                vp.cursor,
+                (
+                    vp.wl_custom,
+                    vp.colormap.clone(),
+                    vp.voi_lut_fn,
+                    texture,
+                    vp.invert,
+                ),
+            );
+        }
+
+        let vp = app.find_viewport(&id).expect("Unable to find viewport");
+        let texture = &vp.tx_map[&vp.cursor].3;
+        let image_size = texture.size_vec2();
+        let av_s = ui.available_size_before_wrap();
+
+        egui::Window::new(id.to_string())
+            .constrain_to(ui.available_rect_before_wrap())
+            .resizable(true)
+            .min_size(av_s / 1.4)
+            .max_size(av_s * 0.98)
+            .open(&mut open)
+            .show(ui, |ui| {
+                egui::Panel::top("top_window_panel").show_inside(ui, |ui| {
+                    egui::MenuBar::new().ui(ui, |ui| {
+                        if ui
+                            .button("Reset View")
+                            .on_hover_cursor(egui::CursorIcon::PointingHand)
+                            .clicked()
+                        {
+                            vp.zoom = 1.0;
+                            vp.pan = egui::Vec2::ZERO;
+                        }
+                    });
+                });
+                ui.add_space(10.0);
+
+                egui::Panel::left(format!("{}_left", &id))
+                    .resizable(false)
+                    .max_size(30.0)
+                    .show_inside(ui, |ui| {
+                        let available_height = ui.available_height() - 10.0;
+                        ui.spacing_mut().slider_width = available_height.max(10.0);
+                        ui.add(
+                            egui::Slider::new(&mut vp.cursor, vp.tx_map.len() - 1..=0)
+                                .vertical()
+                                .show_value(false),
+                        )
+                        .on_hover_cursor(egui::CursorIcon::PointingHand);
+                    });
+
+                egui::Panel::right(format!("{}_right", &id))
+                    .resizable(false)
+                    .min_size(250.0)
+                    .show_inside(ui, |ui| {
+                        if ui
+                            .button("Reset window")
+                            .on_hover_cursor(egui::CursorIcon::PointingHand)
+                            .clicked()
+                        {
+                            vp.wl_custom = vp.wl;
+                        }
+                        ui.separator();
+                        ui.add(
+                            egui::Slider::new(&mut vp.wl_custom.width, 1.0..=32768.0)
+                                .text("Window"),
+                        )
+                        .on_hover_cursor(egui::CursorIcon::PointingHand);
+                        ui.add(
+                            egui::Slider::new(&mut vp.wl_custom.center, -32768.0..=32768.0)
+                                .text("Level"),
+                        )
+                        .on_hover_cursor(egui::CursorIcon::PointingHand);
+                        ui.separator();
+
+                        let before = vp.wl_custom;
+                        let mut found = false;
+
+                        for item in CT_PRESETS {
+                            if item.1 == before {
+                                vp.ct_preset = item.0;
+                                found = true;
+                                break;
+                            }
+                        }
+                        if !found {
+                            vp.ct_preset = Enum::Custom;
+                        }
+
+                        egui::ComboBox::from_label("CT window presets")
+                            .selected_text(format!("{:?}", vp.ct_preset))
+                            .show_ui(ui, |ui| {
+                                for item in CT_PRESETS {
+                                    ui.selectable_value(
+                                        &mut vp.wl_custom,
+                                        item.1,
+                                        format!("{:?}", item.0),
+                                    );
+                                }
+                            })
+                            .response
+                            .on_hover_text("Some window level presets for CT images")
+                            .on_hover_cursor(egui::CursorIcon::PointingHand);
+                        ui.separator();
+
+                        egui::ComboBox::from_label("LUT")
+                            .selected_text(format!("{:?}", &vp.colormap))
+                            .show_ui(ui, |ui| {
+                                ui.selectable_value(
+                                    &mut vp.colormap,
+                                    GradientEnum::Default,
+                                    "Default",
+                                );
+                                ui.selectable_value(&mut vp.colormap, GradientEnum::Grays, "Grays");
+                                ui.selectable_value(
+                                    &mut vp.colormap,
+                                    GradientEnum::Oranges,
+                                    "Oranges",
+                                );
+                                ui.selectable_value(&mut vp.colormap, GradientEnum::Warm, "Warm");
+                            })
+                            .response
+                            .on_hover_text("Color gradient");
+                        ui.separator();
+
+                        egui::ComboBox::from_label("LUT Shape")
+                            .selected_text(format!("{:?}", &vp.voi_lut_fn))
+                            .show_ui(ui, |ui| {
+                                ui.selectable_value(
+                                    &mut vp.voi_lut_fn,
+                                    VoiLutFunction::Linear,
+                                    "Linear (default)",
+                                );
+                                ui.selectable_value(
+                                    &mut vp.voi_lut_fn,
+                                    VoiLutFunction::LinearExact,
+                                    "Linear exact",
+                                );
+                                ui.selectable_value(
+                                    &mut vp.voi_lut_fn,
+                                    VoiLutFunction::Sigmoid,
+                                    "Sigmoid",
+                                );
+                            })
+                            .response
+                            .on_hover_text("LUT shape")
+                            .on_hover_cursor(egui::CursorIcon::PointingHand);
+                        ui.separator();
+                        ui.checkbox(&mut vp.invert, "Invert")
+                            .on_hover_cursor(egui::CursorIcon::PointingHand);
+                    });
+
+                egui::CentralPanel::default().show_inside(ui, |ui| {
+                    egui::Frame::canvas(ui.style()).show(ui, |ui| {
+                        let available_size = ui.available_size();
+                        let (scene_response, painter) =
+                            ui.allocate_painter(available_size, egui::Sense::click_and_drag());
+                        let scene_rect = scene_response.rect;
+                        let pointer_pos = ui.pointer_hover_pos().unwrap_or(egui::Pos2::ZERO);
+
+                        if scene_response.hovered() {
+                            ui.input(|i| {
+                                if i.modifiers.ctrl {
+                                    let raw_zoom_delta = i.zoom_delta();
+                                    if raw_zoom_delta != 1.0 {
+                                        let dampened = 1.0 + (raw_zoom_delta - 1.0) * 0.25;
+                                        vp.zoom *= dampened;
+                                        vp.zoom = vp.zoom.clamp(0.1, 15.0);
+                                    }
+                                }
+                            });
+                        }
+                        if ui.input(|i| i.pointer.button_down(egui::PointerButton::Middle))
+                            && (scene_response.hovered() || scene_response.dragged())
+                        {
+                            vp.pan += ui.input(|i| i.pointer.delta());
+                        }
+                        let scaled_size = image_size * vp.zoom;
+                        let mut min_pan = egui::Vec2::ZERO;
+                        let mut max_pan = egui::Vec2::ZERO;
+                        if scaled_size.x > scene_rect.width() {
+                            let max_x = (scaled_size.x - scene_rect.width()) / 2.0;
+                            min_pan.x = -max_x;
+                            max_pan.x = max_x;
+                        }
+                        if scaled_size.y > scene_rect.height() {
+                            let max_y = (scaled_size.y - scene_rect.height()) / 2.0;
+                            min_pan.y = -max_y;
+                            max_pan.y = max_y;
+                        }
+                        vp.pan = vp.pan.clamp(min_pan, max_pan);
+                        let center_offset = (scene_rect.size() - scaled_size) / 2.0;
+                        let image_rect = egui::Rect::from_min_size(
+                            scene_rect.min + center_offset + vp.pan,
+                            scaled_size,
+                        );
+                        let is_hovering_image = image_rect.contains(pointer_pos);
+                        if scene_response.hovered() && is_hovering_image {
+                            ui.input(|i| {
+                                if !i.modifiers.ctrl {
+                                    for event in &i.events {
+                                        if let egui::Event::MouseWheel { delta, .. } = event {
+                                            let scroll = -delta.y.signum() as i8;
+                                            if scroll > 0 && vp.cursor < vp.tx_map.len() - 1 {
+                                                vp.cursor += scroll.unsigned_abs() as usize;
+                                            } else if scroll < 0 && vp.cursor > 0 {
+                                                vp.cursor -= scroll.unsigned_abs() as usize;
+                                            }
+                                        }
+                                    }
+                                }
+                            });
+                        }
+                        if scene_response.dragged_by(egui::PointerButton::Primary)
+                            && let Some(origin) = ui.input(|i| i.pointer.press_origin())
+                            && image_rect.contains(origin)
+                        {
+                            let x = scene_response.drag_delta().x as f64;
+                            if (x > 0.0 && vp.wl_custom.width < 32768.0)
+                                || (x < 0.0 && vp.wl_custom.width > 1.0)
+                            {
+                                vp.wl_custom.width += x;
+                            }
+
+                            let y = -scene_response.drag_delta().y as f64;
+                            if (y > 0.0 && vp.wl_custom.center < 32768.0)
+                                || (y < 0.0 && vp.wl_custom.center > -32768.0)
+                            {
+                                vp.wl_custom.center += y;
+                            }
+                        }
+                        painter.image(
+                            texture.id(),
+                            image_rect,
+                            egui::Rect::from_min_max(egui::pos2(0.0, 0.0), egui::pos2(1.0, 1.0)),
+                            egui::Color32::WHITE,
+                        );
+
+                        painter.text(
+                            scene_rect.left_bottom() + egui::vec2(10.0, -10.0),
+                            egui::Align2::LEFT_BOTTOM,
+                            "Pan: MOUSE3\nScroll: SCROLL\nZoom: CTRL + SCROLL\nWindow level: MOUSE1",
+                            egui::FontId::proportional(10.0),
+                            egui::Color32::GRAY,
+                        );
+                    });
+                });
+            });
+        if !open {
+            app.windows.remove(&id);
+            app.remove_viewport(id);
+        }
+        if !was_open {
+            app.remove_viewport(id);
+        }
+    }
 }
